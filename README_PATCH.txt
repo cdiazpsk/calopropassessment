@@ -2,17 +2,18 @@ PATCH CONTENTS
 
 Replace:
 components/Header.jsx
+app/page.jsx
+app/admin/page.jsx
+app/admin/[id]/page.jsx
 
 Add:
-app/thank-you/page.jsx
-app/admin/login/page.jsx
-app/api/login/route.js
-app/api/logout/route.js
-middleware.js
+public/caliber-logo.jpg
 
-Also update app/assessment/page.jsx manually:
-1. Add the Rating Guide below.
-2. Replace successful submit behavior with: window.location.href = '/thank-you';
+Changes:
+1. Removes Internal Dashboard button from the homepage.
+2. Adds Caliber logo to homepage, header, admin list, and detail page.
+3. Assessment list properties are clickable.
+4. Detail page now shows submitted details, condition scores, AI section, uploaded photos/videos, and a Back to Assessment List button.
 
-Netlify environment variable required:
-ADMIN_PASSWORD=your chosen admin password
+Note:
+Uploaded media uses signed Supabase URLs valid for 1 hour.

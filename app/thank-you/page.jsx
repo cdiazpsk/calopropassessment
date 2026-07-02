@@ -1,0 +1,26 @@
+import Link from 'next/link';
+import Header from '../../components/Header';
+
+export default function ThankYouPage() {
+  return (
+    <>
+      <Header />
+      <main style={{ maxWidth: 760, margin: '0 auto', padding: '80px 20px' }}>
+        <section className="card" style={{ padding: 42, textAlign: 'center' }}>
+          <p style={{ color: '#0F67B1', fontWeight: 900, letterSpacing: 1 }}>ASSESSMENT RECEIVED</p>
+          <h1 style={{ color: '#0B2F5B', fontSize: 42, margin: '10px 0 14px', fontWeight: 900 }}>
+            Thank you.
+          </h1>
+          <p style={{ color: '#475569', fontSize: 18, lineHeight: 1.55 }}>
+            Caliber has received the property assessment. Our team will review the information, submitted photos, and operational notes to prepare next steps.
+          </p>
+
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 14, marginTop: 28, flexWrap: 'wrap' }}>
+            <Link className="btn-primary" href="/assessment">Submit Another Assessment</Link>
+            <Link className="btn-secondary" href="/">Return Home</Link>
+          </div>
+        </section>
+      </main>
+    </>
+  );
+}

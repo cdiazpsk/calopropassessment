@@ -57,7 +57,7 @@ export default async function AdminPage() {
 
         <div className="grid3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 16 }}>
           {assessments.map(x => (
-            <Link key={x.id} href={`/admin/detail?id=${x.id}`} className="card" style={{ padding: 20 }}>
+            <Link key={x.id} href={`/admin/${x.id}`} className="card" style={{ padding: 20 }}>
               <p style={{ margin: 0, color: '#0F67B1', fontWeight: 900, fontSize: 12 }}>
                 {x.property_category || 'N/A'}
               </p>

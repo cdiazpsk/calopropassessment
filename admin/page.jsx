@@ -6,37 +6,39 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 async function getAssessments() {
-  try {
-    const s = serviceSupabase();
-    const { data, error } = await s
-      .from('assessments')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(200);
+  const s = serviceSupabase();
 
-    if (error) return { data: [], error: error.message };
+  const { data, error } = await s
+    .from('assessments')
+    .select('*')
+    .order('created_at', { ascending: false });
 
-    const seen = new Set();
-    const deduped = [];
-
-    for (const item of data || []) {
-      if (!item?.id) continue;
-      const key = [
-        item.property_name || '',
-        item.brand || '',
-        item.property_city || '',
-        item.property_state || ''
-      ].join('|').toLowerCase();
-
-      if (seen.has(key)) continue;
-      seen.add(key);
-      deduped.push(item);
-    }
-
-    return { data: deduped, error: null };
-  } catch (e) {
-    return { data: [], error: e.message };
+  if (error) {
+    return { data: [], error: error.message };
   }
+
+  // Only show newest submission for each property
+  const map = new Map();
+
+  for (const row of data || []) {
+    const key = [
+      row.property_name,
+      row.brand,
+      row.property_city,
+      row.property_state,
+    ]
+      .join('|')
+      .toLowerCase();
+
+    if (!map.has(key)) {
+      map.set(key, row);
+    }
+  }
+
+  return {
+    data: Array.from(map.values()),
+    error: null,
+  };
 }
 
 export default async function AdminPage() {
@@ -45,37 +47,106 @@ export default async function AdminPage() {
   return (
     <>
       <Header />
-      <main style={{ maxWidth: 1180, margin: '0 auto', padding: '36px 20px 70px' }}>
+
+      <main
+        style={{
+          maxWidth: 1180,
+          margin: '0 auto',
+          padding: '40px 20px 80px',
+        }}
+      >
         <p className="kicker">Internal Dashboard</p>
+
         <h1 className="h1">Assessment Pipeline</h1>
 
         {error && (
-          <div className="card" style={{ padding: 18, color: '#b42318', marginBottom: 18, fontWeight: 800 }}>
-            Admin error: {error}
+          <div
+            className="card"
+            style={{
+              padding: 20,
+              color: '#b42318',
+              marginBottom: 20,
+            }}
+          >
+            {error}
           </div>
         )}
 
-        <div className="grid3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 16 }}>
-          {assessments.map(x => (
-            <Link key={x.id} href={`/admin/detail?id=${x.id}`} className="card" style={{ padding: 20 }}>
-              <p style={{ margin: 0, color: '#0F67B1', fontWeight: 900, fontSize: 12 }}>
-                {x.property_category || 'N/A'}
-              </p>
-              <h2 style={{ color: '#0B2F5B', margin: '8px 0 8px' }}>{x.property_name}</h2>
-              <p className="muted" style={{ margin: 0 }}>
-                {x.brand || 'N/A'} | {x.property_city || 'N/A'}, {x.property_state || 'N/A'}
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8, marginTop: 14 }}>
-                <Metric label="Score" value={x.readiness_score || 'N/A'} />
-                <Metric label="Prod." value={`${x.estimated_rooms_per_day || 'N/A'}/day`} />
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill,minmax(330px,1fr))',
+            gap: 18,
+          }}
+        >
+          {assessments.map((a) => (
+            <Link
+              key={a.id}
+              href={`/admin/${a.id}`}
+              className="card"
+              style={{
+                padding: 22,
+                textDecoration: 'none',
+              }}
+            >
+              <div
+                style={{
+                  color: '#0F67B1',
+                  fontWeight: 800,
+                  fontSize: 12,
+                  textTransform: 'uppercase',
+                }}
+              >
+                {a.property_category || 'Property'}
               </div>
-              <p className="muted"><strong>{x.recommended_program || 'N/A'}</strong></p>
+
+              <h2
+                style={{
+                  color: '#0B2F5B',
+                  margin: '8px 0',
+                }}
+              >
+                {a.property_name}
+              </h2>
+
+              <p
+                style={{
+                  color: '#64748b',
+                  marginBottom: 18,
+                }}
+              >
+                {a.brand} • {a.property_city}, {a.property_state}
+              </p>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: 12,
+                }}
+              >
+                <Metric
+                  label="Score"
+                  value={a.readiness_score || '--'}
+                />
+
+                <Metric
+                  label="Production"
+                  value={`${a.estimated_rooms_per_day || '--'}/day`}
+                />
+              </div>
+
+              <div
+                style={{
+                  marginTop: 16,
+                  color: '#0B2F5B',
+                  fontWeight: 700,
+                }}
+              >
+                {a.recommended_program || 'Pending'}
+              </div>
             </Link>
           ))}
-
-          {assessments.length === 0 && (
-            <div className="card" style={{ padding: 20, color: '#64748b' }}>No assessments found.</div>
-          )}
         </div>
       </main>
     </>
@@ -84,9 +155,32 @@ export default async function AdminPage() {
 
 function Metric({ label, value }) {
   return (
-    <div style={{ background: '#f8fafc', borderRadius: 12, padding: 10 }}>
-      <div style={{ fontSize: 11, color: '#64748b', fontWeight: 800 }}>{label}</div>
-      <strong style={{ color: '#0B2F5B' }}>{value}</strong>
+    <div
+      style={{
+        background: '#f8fafc',
+        borderRadius: 12,
+        padding: 12,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 11,
+          color: '#64748b',
+          fontWeight: 700,
+        }}
+      >
+        {label}
+      </div>
+
+      <div
+        style={{
+          fontSize: 24,
+          color: '#0B2F5B',
+          fontWeight: 900,
+        }}
+      >
+        {value}
+      </div>
     </div>
   );
 }

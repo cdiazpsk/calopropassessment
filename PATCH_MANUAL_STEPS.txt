@@ -1,0 +1,86 @@
+MANUAL STEPS FOR REMAINING TWO FILES
+
+1. In app/assessment/page.jsx:
+   Add this import:
+   import { SERVICE_CONFIG, getServiceConfig, scoreDescriptions } from '../../lib/serviceConfig';
+
+   Change initial service_categories to:
+   service_categories: ['Guestroom PM'],
+
+   Add new initial scores:
+   main_area_paint_score: 3,
+   public_caulk_score: 3,
+   drywall_score: 3,
+   baseboards_score: 3,
+   exterior_condition_score: 3,
+   upholstery_score: 3,
+   vinyl_wallpaper_score: 3,
+   hvac_equipment_score: 3,
+   ice_machine_score: 3,
+   walkin_cooler_score: 3,
+   reachin_equipment_score: 3,
+   kitchen_equipment_score: 3,
+   laundry_equipment_score: 3,
+   mechanical_access_score: 3,
+   flooring_score: 3,
+   fixtures_score: 3,
+
+   Replace the service category list with:
+   const services = Object.keys(SERVICE_CONFIG);
+
+   In the component add:
+   const serviceConfig = getServiceConfig(form.service_categories);
+
+   Replace the multi-select service chips logic so it only selects one:
+   function selectService(service) {
+     setForm(p => ({ ...p, service_categories: [service] }));
+   }
+
+   Use:
+   <Chips items={services} selected={form.service_categories} onClick={selectService} />
+
+   Replace condition score mapping with:
+   {serviceConfig.scores.map(([key, label]) => (
+     <Score key={key} label={label} value={form[key] || 3} onChange={v => update(key, Number(v))} />
+   ))}
+
+   Replace photo labels with:
+   {serviceConfig.photos.map(label => (...))}
+
+   In Score helper, use:
+   <small>{scoreDescriptions[value]}</small>
+
+2. In app/assessment-review/page.jsx:
+   Replace the HealthScores function with the compact version below:
+   function HealthScores({ data }) {
+     if (!data) return <p className="muted">No health score available.</p>;
+     const entries = Object.entries(data).filter(([key]) => key !== 'overall');
+     const overall = data.overall;
+     return (
+       <div style={{ display: 'grid', gap: 6 }}>
+         {entries.map(([key, value]) => <CompactBar key={key} label={key.replaceAll('_', ' ')} value={value} />)}
+         {overall !== undefined && (
+           <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #e2e8f0' }}>
+             <CompactBar label="Overall" value={overall} strong />
+           </div>
+         )}
+       </div>
+     );
+   }
+
+   Add this helper:
+   function CompactBar({ label, value, strong = false }) {
+     const pct = Math.max(0, Math.min(100, Number(value) || 0));
+     return (
+       <div style={{ display: 'grid', gridTemplateColumns: '190px 1fr 60px', alignItems: 'center', gap: 10, fontSize: strong ? 15 : 13 }}>
+         <div style={{ color: '#0B2F5B', fontWeight: strong ? 900 : 800, textTransform: 'capitalize' }}>{label}</div>
+         <div style={{ height: 7, background: '#e2e8f0', borderRadius: 999 }}>
+           <div style={{ height: '100%', width: `${pct}%`, background: '#0F67B1', borderRadius: 999 }} />
+         </div>
+         <div style={{ color: '#0B2F5B', fontWeight: 900, textAlign: 'right' }}>{pct}/100</div>
+       </div>
+     );
+   }
+
+   In CostDrivers, replace Bar with CompactBar:
+   <CompactBar label={item.category} value={item.percent} />

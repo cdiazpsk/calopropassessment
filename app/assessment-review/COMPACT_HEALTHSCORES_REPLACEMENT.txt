@@ -1,0 +1,34 @@
+Replace the HealthScores function in app/assessment-review/page.jsx with:
+
+function HealthScores({ data }) {
+  if (!data) return <p className="muted">No health score available.</p>;
+
+  const entries = Object.entries(data).filter(([key]) => key !== 'overall');
+  const overall = data.overall;
+
+  return (
+    <div style={{ display: 'grid', gap: 6 }}>
+      {entries.map(([key, value]) => <CompactBar key={key} label={key.replaceAll('_', ' ')} value={value} />)}
+      {overall !== undefined && (
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #e2e8f0' }}>
+          <CompactBar label="Overall" value={overall} strong />
+        </div>
+      )}
+    </div>
+  );
+}
+
+Add this helper under it:
+
+function CompactBar({ label, value, strong = false }) {
+  const pct = Math.max(0, Math.min(100, Number(value) || 0));
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '190px 1fr 60px', alignItems: 'center', gap: 10, fontSize: strong ? 15 : 13 }}>
+      <div style={{ color: '#0B2F5B', fontWeight: strong ? 900 : 800, textTransform: 'capitalize' }}>{label}</div>
+      <div style={{ height: 7, background: '#e2e8f0', borderRadius: 999 }}>
+        <div style={{ height: '100%', width: `${pct}%`, background: '#0F67B1', borderRadius: 999 }} />
+      </div>
+      <div style={{ color: '#0B2F5B', fontWeight: 900, textAlign: 'right' }}>{pct}/100</div>
+    </div>
+  );
+}

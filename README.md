@@ -1,12 +1,23 @@
-# CaliberOS Clean Replacement
+FULL SERVICE TYPES + ARCHIVE/DELETE FIX
 
-Before upload, delete these old folders from GitHub:
-- app/admin/[id]
-- app/admin/detail
+Replace or add all files in this package.
 
-Routes:
-- /admin
-- /assessment-review?id=<uuid>
-- /proposal?id=<uuid>
+Files included:
+- lib/serviceConfig.js
+- components/PipelineCardActions.jsx
+- app/api/archive-assessment/route.js
+- app/api/delete-assessment/route.js
+- app/admin/page.jsx
+- app/assessment/page.jsx
+- supabase/schema-sync.sql
 
-After upload: commit and Netlify deploy without cache.
+Then run:
+supabase/schema-sync.sql
+
+Then deploy Netlify without cache.
+
+Important:
+This package now includes the full app/assessment/page.jsx file. No manual steps needed for the assessment form.
+
+For the compact health score on assessment-review, use the small text file:
+app/assessment-review/COMPACT_HEALTHSCORES_REPLACEMENT.txt

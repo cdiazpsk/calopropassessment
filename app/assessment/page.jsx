@@ -312,23 +312,29 @@ useEffect(() => {
                 Back
               </button>
 
-              {step < steps.length - 1 ? (  
-                <button className="btn-primary" type="button" onClick={(e) => e.preventDefault(); 
-                  nextStep();>
-                  Continue
-                    }}
-                    >
-                </button>
-              ) : (
-                  <button className="btn-primary"
-                    type="button"
-                    onClick={(e) => {e.preventDefault();
-                                     submit(e);
-                                    }}
-                    >
-                  Submit Assessment
-                </button>
-              )}
+{step < steps.length - 1 ? (
+  <button
+    className="btn-primary"
+    type="button"
+    onClick={(e) => {
+      e.preventDefault();
+      nextStep();
+    }}
+  >
+    Continue
+  </button>
+) : (
+  <button
+    className="btn-primary"
+    type="button"
+    onClick={(e) => {
+      e.preventDefault();
+      submit(e);
+    }}
+  >
+    Submit Assessment
+  </button>
+)}
             </div>
           </div>
         </form>

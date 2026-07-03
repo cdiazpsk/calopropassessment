@@ -203,7 +203,7 @@ useEffect(() => {
           </div>
         </div>
 
-        <form onSubmit={submit}>
+        <form onSubmit={(e) => e.preventDefault()}>
           {step === 0 && (
             <Card title="1. Reason and Service Type">
               <Select label="Primary Reason" value={form.assessment_reason} onChange={v => update('assessment_reason', v)} options={reasons} />
@@ -312,12 +312,20 @@ useEffect(() => {
                 Back
               </button>
 
-              {step < steps.length - 1 ? (
-                <button className="btn-primary" type="button" onClick={nextStep}>
+              {step < steps.length - 1 ? (  
+                <button className="btn-primary" type="button" onClick={(e) => e.preventDefault(); 
+                  nextStep();>
                   Continue
+                    }}
+                    >
                 </button>
               ) : (
-                <button className="btn-primary" type="submit">
+                  <button className="btn-primary"
+                    type="button"
+                    onClick={(e) => {e.preventDefault();
+                                     submit(e);
+                                    }}
+                    >
                   Submit Assessment
                 </button>
               )}

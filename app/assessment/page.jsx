@@ -71,16 +71,16 @@ export default function AssessmentPage() {
   const serviceConfig = getServiceConfig(form.service_categories);
   const scored = useMemo(() => scoreAssessment(form), [form]);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('caliber_assessment_draft_v2');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setForm({ ...initial, ...parsed.form });
-        setStep(parsed.step || 0);
-      } catch {}
-    }
-  }, []);
+useEffect(() => {
+  const saved = localStorage.getItem('caliber_assessment_draft_v2');
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      setForm({ ...initial, ...parsed.form });
+      setStep(Math.min(parsed.step || 0, 5));
+    } catch {}
+  }
+}, []);
 
   useEffect(() => {
     const t = setTimeout(() => {

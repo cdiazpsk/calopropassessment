@@ -53,13 +53,42 @@ const initial = {
   flooring_score: 3,
   fixtures_score: 3,
   top_issues: [],
-  notes: ''
+  notes: '',
+  src: null
 };
 
 const reasons = ['Preventative Maintenance', 'Budget Pricing', 'Capital Planning', 'Due Diligence', 'New Acquisition', 'PIP Planning', 'Mechanical Assessment', 'General Maintenance', 'Other'];
 const services = Object.keys(SERVICE_CONFIG);
 const issues = ['Heavy caulking needed', 'Widespread paint touch-ups', 'Corner-to-corner paint needed', 'Furniture touch-ups', 'PTAC/VTAC cleaning', 'Drain issues', 'Entry door painting', 'Grout refresh', 'Room release constraints', 'Mechanical concerns', 'Public area wear', 'Capital project needed'];
 const steps = ['Reason', 'Property', 'Operations', 'Ratings', 'Issues', 'Photos', 'Notes'];
+
+// 'Capital+Planning', 'capital-planning' and 'CAPITAL PLANNING' all normalize to the same key.
+const normalizeOption = value => String(value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+function matchOption(value, options) {
+  const target = normalizeOption(value);
+  if (!target) return null;
+  return options.find(option => normalizeOption(option) === target) || null;
+}
+
+function readQueryPrefill() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const reason = matchOption(params.get('reason'), reasons);
+    const service = matchOption(params.get('service'), services);
+    const src = (params.get('src') || '').trim();
+    const prefill = {};
+
+    if (reason) prefill.assessment_reason = reason;
+    if (service) prefill.service_categories = [service];
+    if (src) prefill.src = src.slice(0, 200);
+
+    return prefill;
+  } catch {
+    // Unreadable or unsupported query strings simply leave the defaults in place.
+    return {};
+  }
+}
 
 export default function AssessmentPage() {
   const [form, setForm] = useState(initial);
@@ -72,14 +101,21 @@ export default function AssessmentPage() {
   const scored = useMemo(() => scoreAssessment(form), [form]);
 
 useEffect(() => {
-  const saved = localStorage.getItem('caliber_assessment_draft_v2');
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      setForm({ ...initial, ...parsed.form });
-      setStep(Math.min(parsed.step || 0, 5));
-    } catch {}
+  let draft = null;
+  try {
+    const saved = localStorage.getItem('caliber_assessment_draft_v2');
+    if (saved) draft = JSON.parse(saved);
+  } catch {}
+
+  const prefill = readQueryPrefill();
+  const preselectsStepOne = Boolean(prefill.assessment_reason || prefill.service_categories);
+
+  if (draft || preselectsStepOne || prefill.src) {
+    setForm({ ...initial, ...(draft?.form || {}), ...prefill });
   }
+
+  // A link that pre-selects the reason or service starts on Step 1 so the choice stays visible and editable.
+  if (draft && !preselectsStepOne) setStep(Math.min(draft.step || 0, 5));
 }, []);
 
   useEffect(() => {
@@ -122,7 +158,7 @@ useEffect(() => {
 
   function clearDraft() {
     localStorage.removeItem('caliber_assessment_draft_v2');
-    setForm(initial);
+    setForm({ ...initial, src: form.src });
     setFiles({});
     setStep(0);
     setDraftStatus('Draft cleared');
@@ -139,6 +175,7 @@ useEffect(() => {
       const payload = {
         id,
         ...form,
+        src: form.src || null,
         property_category: scored.property_category,
         total_rooms: Number(form.total_rooms),
         last_renovated_year: form.last_renovated_year ? Number(form.last_renovated_year) : null,
@@ -146,7 +183,15 @@ useEffect(() => {
         ...scored
       };
 
-      const { error } = await supabase.from('assessments').insert(payload);
+      let { error } = await supabase.from('assessments').insert(payload);
+
+      // If the src column has not been added to the table yet, save the assessment without it
+      // rather than losing the submission.
+      if (error && payload.src && isUnknownColumnError(error, 'src')) {
+        const { src, ...withoutSrc } = payload;
+        ({ error } = await supabase.from('assessments').insert(withoutSrc));
+      }
+
       if (error) throw error;
 
       for (const [label, list] of Object.entries(files)) {
@@ -341,6 +386,11 @@ useEffect(() => {
       </main>
     </>
   );
+}
+
+function isUnknownColumnError(error, column) {
+  const message = `${error?.message || ''} ${error?.details || ''}`.toLowerCase();
+  return message.includes(column) && (message.includes('column') || message.includes('schema cache'));
 }
 
 function Card({ title, children }) {

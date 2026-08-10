@@ -204,6 +204,7 @@ function DetailGrid({ assessment }) {
   const rows = [
     ['Reason', assessment.assessment_reason],
     ['Services', (assessment.service_categories || []).join(', ')],
+    ['Source Page', assessment.src],
     ['Management Company', assessment.management_company],
     ['Ownership Group', assessment.owner_company],
     ['Contact', `${assessment.contact_name || 'N/A'} | ${assessment.contact_email || 'N/A'} | ${assessment.contact_phone || 'N/A'}`],

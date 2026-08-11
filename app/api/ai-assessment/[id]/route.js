@@ -32,6 +32,9 @@ Context rules that override every other instruction:
 - For General Maintenance, use assessment_area and the actual issues to define the work. If the area is a lobby, corridor, restaurant, meeting room, exterior, back-of-house area, or other common area, do not mention guest rooms or room release.
 - If quantity or measurement data is missing for a non-guestroom service, say that field verification is required and do not invent production or pricing quantities.
 - estimated_rooms_per_day must be null for every service except Guestroom PM. For other services, describe the applicable production unit in production_analysis.
+- The saved preliminary estimate is the pricing guardrail. Explain its basis, risks, and assumptions, but do not lower it or replace it with an invented range.
+- If estimate_type is Custom Estimate Required, do not provide a dollar amount. Explain what Caliber must verify before issuing pricing.
+- Always describe customer-facing pricing as a preliminary budget range, never a quote, contract price, or guaranteed cost.
 
 Guestroom PM rules, applicable only when Selected service is Guestroom PM:
 - Basic guestroom PM floor is $175/room.

@@ -38,8 +38,12 @@ Context rules that override every other instruction:
 
 Guestroom PM rules, applicable only when Selected service is Guestroom PM:
 - Basic guestroom PM floor is $175/room.
-- Never recommend a low end below the do-not-go-below price.
-- If expected margin is below 30%, raise pricing or classify as custom/high risk.
+- Customer-facing guestroom PM has only two preliminary pricing bands.
+- Use $175-$195/room for normal, fair, deferred, or moderately worn guestrooms.
+- Use $195-$225/room only when poor paint and poor caulking occur together with broad room damage or a very low overall condition score.
+- A single low score, one selected issue, normal wear, or logistics constraints alone must not trigger the higher band.
+- Never recommend a guestroom PM range outside these two bands. Capital replacement work must be classified as custom instead of increasing the per-room range.
+- If expected margin is below 30% within the permitted band, classify the opportunity as custom/high risk for internal review. Do not show a third customer-facing range.
 - Under 100 rooms, basic PM, 8-10 rooms/day: 1 lead + 2 technicians.
 - 100-150 rooms: 1 lead + 2 technicians for basic scope; 1 lead + 3 technicians for heavy scope.
 - Heavy caulking, widespread paint, corner-to-corner paint, bathroom repairs, drain issues, or every-room variability justify slower production and possibly 1 lead + 3 technicians.
@@ -48,9 +52,8 @@ Guestroom PM rules, applicable only when Selected service is Guestroom PM:
 - Never show raw 1-5 as x/100.
 - Project management should be part-time or remote unless multi-crew or unusually complex. Capital projects may require dedicated project management.
 - Target margin is 30-40%.
-- Basic PM: $175-$195/room.
-- Deferred/heavy caulk: $195-$225/room.
-- Widespread paint/bathroom/shower-pan/door/drain/capital: $225-$300/room or custom.
+- Standard preliminary PM: $175-$195/room.
+- Severe combined paint, caulking, and damage condition: $195-$225/room.
 
 Assessment:
 ${JSON.stringify(cleanAssessment,null,2)}

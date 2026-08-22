@@ -1,0 +1,105 @@
+From 2126bb7c11babffe0cdb65798f49cc42b24d4dbe Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 22 Aug 2026 15:28:30 +0000
+Subject: [PATCH 1/2] Fix AI assessment save crash and raise heavy-scope
+ production floor
+
+- ai-assessment route: coerce AI-returned addons/risks/questions/
+  operational_recommendations to arrays before writing to Postgres
+  text[] columns. The model occasionally returned a plain string for
+  one of these fields, which threw "malformed array literal" and
+  aborted the whole update, silently dropping every AI field for that
+  assessment. The raw Postgres error was also being surfaced directly
+  in the admin UI instead of a clean message; now logged server-side
+  and a friendly message is returned instead.
+- scoring.js + AI prompt: heavy-condition guestroom PM production was
+  hard-capped at 6 rooms/day regardless of rooms-available input. 6 is
+  now a floor, not a ceiling - production can rise toward the normal
+  8-10/day range when availability or condition supports it.
+---
+ app/api/ai-assessment/[id]/route.js | 19 +++++++++++++++++--
+ lib/scoring.js                      |  5 +++--
+ 2 files changed, 20 insertions(+), 4 deletions(-)
+
+diff --git a/app/api/ai-assessment/[id]/route.js b/app/api/ai-assessment/[id]/route.js
+index 5ba7329..5cd6ca6 100644
+--- a/app/api/ai-assessment/[id]/route.js
++++ b/app/api/ai-assessment/[id]/route.js
+@@ -47,6 +47,7 @@ Guestroom PM rules, applicable only when Selected service is Guestroom PM:
+ - Under 100 rooms, basic PM, 8-10 rooms/day: 1 lead + 2 technicians.
+ - 100-150 rooms: 1 lead + 2 technicians for basic scope; 1 lead + 3 technicians for heavy scope.
+ - Heavy caulking, widespread paint, corner-to-corner paint, bathroom repairs, drain issues, or every-room variability justify slower production and possibly 1 lead + 3 technicians.
++- Treat 6 rooms/day as a floor for heavy-condition scope, never a fixed value or ceiling. When rooms available per day or overall condition supports a faster pace, use up to the normal 8-10 rooms/day range instead of defaulting to 6. Only fall back to 6 when no rooms-available figure was provided and condition data does not support a faster pace.
+ - Rooms available/day is a cap, not automatically a limitation.
+ - Convert 1-5 scores to 20/40/60/80/100.
+ - Never show raw 1-5 as x/100.
+@@ -64,8 +65,22 @@ Before returning, verify that every field uses ${service} terminology and that n
+   const openai=new OpenAI({apiKey:process.env.OPENAI_API_KEY});
+   const r=await openai.chat.completions.create({model:'gpt-4.1-mini',messages:[{role:'user',content:prompt}],temperature:.2,response_format:{type:'json_object'}});
+   const x=JSON.parse(r.choices[0].message.content);
+-  const up=await s.from('assessments').update({ai_summary:x.summary,ai_condition_score:x.condition_score,ai_estimated_rooms_per_day:x.estimated_rooms_per_day,ai_recommended_program:x.recommended_program,ai_recommended_pricing:x.recommended_pricing,ai_recommended_addons:x.recommended_addons,ai_risks:x.risks,ai_questions:x.questions,ai_proposal_scope:x.proposal_scope,ai_property_health:x.property_health,ai_cost_risks:x.cost_risks,ai_profitability_analysis:x.profitability_analysis,ai_production_analysis:x.production_analysis,ai_opportunity_analysis:x.opportunity_analysis,ai_cost_drivers:x.cost_drivers,ai_operational_recommendations:x.operational_recommendations,ai_estimate_confidence:x.estimate_confidence,ai_internal_recommendation:x.internal_recommendation}).eq('id',p.id);
++  // The model is asked for JSON arrays on these fields, but occasionally returns a single
++  // string (prose) instead. Supabase/Postgres will throw "malformed array literal" if a plain
++  // string is written to a text[] column, which used to abort the entire update and silently
++  // drop every AI field for this assessment. Coerce here so one inconsistent field can never
++  // take down the whole save.
++  const toArray=v=>{
++   if(v==null)return null;
++   if(Array.isArray(v))return v.map(item=>typeof item==='string'?item:JSON.stringify(item));
++   if(typeof v==='string')return v.trim()?[v.trim()]:null;
++   return [JSON.stringify(v)];
++  };
++  const up=await s.from('assessments').update({ai_summary:x.summary,ai_condition_score:x.condition_score,ai_estimated_rooms_per_day:x.estimated_rooms_per_day,ai_recommended_program:x.recommended_program,ai_recommended_pricing:x.recommended_pricing,ai_recommended_addons:toArray(x.recommended_addons),ai_risks:toArray(x.risks),ai_questions:toArray(x.questions),ai_proposal_scope:x.proposal_scope,ai_property_health:x.property_health,ai_cost_risks:x.cost_risks,ai_profitability_analysis:x.profitability_analysis,ai_production_analysis:x.production_analysis,ai_opportunity_analysis:x.opportunity_analysis,ai_cost_drivers:x.cost_drivers,ai_operational_recommendations:toArray(x.operational_recommendations),ai_estimate_confidence:x.estimate_confidence,ai_internal_recommendation:x.internal_recommendation}).eq('id',p.id);
+   if(up.error)throw up.error;
+   return NextResponse.json({ok:true,result:x});
+- }catch(e){return NextResponse.json({error:e.message||'AI assessment failed.'},{status:500})}
++ }catch(e){
++  console.error('AI assessment failed for',(await params)?.id,e);
++  return NextResponse.json({error:'AI assessment failed. The team has been notified with the error details.'},{status:500});
++ }
+ }
+diff --git a/lib/scoring.js b/lib/scoring.js
+index 03aa127..0e77efe 100644
+--- a/lib/scoring.js
++++ b/lib/scoring.js
+@@ -30,8 +30,9 @@ export function scoreAssessment(form){
+     return{property_category:category,readiness_score:readinessScore,recommended_program:isHeavy?rec.heavy:rec.standard,estimated_rooms_per_day:null,recommended_crew:rec.crew,...calculateEstimate(form,readinessScore)};
+   }
+ 
+-  let prod=isHeavy?6:score<70?8:category==='Full Service'?8:10;
+-  if(release>0)prod=Math.min(prod,release);
++  const base=score<70?8:category==='Full Service'?8:10;
++  let prod=isHeavy?6:base;
++  if(release>0)prod=isHeavy?Math.max(6,Math.min(release,base)):Math.min(prod,release);
+   let crew=(rooms>150||isHeavy||prod<=7)?'1 Lead + 3 Technicians':'1 Lead + 2 Technicians';
+   const poorPaint=Number(form.paint_score||3)<=2||issues.includes('Widespread paint touch-ups')||issues.includes('Corner-to-corner paint needed');
+   const poorCaulk=Number(form.caulk_score||3)<=2||issues.includes('Heavy caulking needed');
+-- 
+2.43.0
+
+
+From e69677a47102082110793b9ab0a951e200accafa Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 22 Aug 2026 15:29:05 +0000
+Subject: [PATCH 2/2] Add .gitignore for local build artifacts
+
+node_modules, .next, and package-lock.json were generated locally
+while verifying the assessment-tool fix builds clean; they shouldn't
+be tracked in source control.
+---
+ .gitignore | 3 +++
+ 1 file changed, 3 insertions(+)
+ create mode 100644 .gitignore
+
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..c9427d1
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,3 @@
++node_modules/
++.next/
++package-lock.json
+-- 
+2.43.0
+

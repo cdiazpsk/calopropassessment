@@ -47,6 +47,7 @@ Guestroom PM rules, applicable only when Selected service is Guestroom PM:
 - Under 100 rooms, basic PM, 8-10 rooms/day: 1 lead + 2 technicians.
 - 100-150 rooms: 1 lead + 2 technicians for basic scope; 1 lead + 3 technicians for heavy scope.
 - Heavy caulking, widespread paint, corner-to-corner paint, bathroom repairs, drain issues, or every-room variability justify slower production and possibly 1 lead + 3 technicians.
+- Treat 6 rooms/day as a floor for heavy-condition scope, never a fixed value or ceiling. When rooms available per day or overall condition supports a faster pace, use up to the normal 8-10 rooms/day range instead of defaulting to 6. Only fall back to 6 when no rooms-available figure was provided and condition data does not support a faster pace.
 - Rooms available/day is a cap, not automatically a limitation.
 - Convert 1-5 scores to 20/40/60/80/100.
 - Never show raw 1-5 as x/100.
@@ -64,8 +65,22 @@ Before returning, verify that every field uses ${service} terminology and that n
   const openai=new OpenAI({apiKey:process.env.OPENAI_API_KEY});
   const r=await openai.chat.completions.create({model:'gpt-4.1-mini',messages:[{role:'user',content:prompt}],temperature:.2,response_format:{type:'json_object'}});
   const x=JSON.parse(r.choices[0].message.content);
-  const up=await s.from('assessments').update({ai_summary:x.summary,ai_condition_score:x.condition_score,ai_estimated_rooms_per_day:x.estimated_rooms_per_day,ai_recommended_program:x.recommended_program,ai_recommended_pricing:x.recommended_pricing,ai_recommended_addons:x.recommended_addons,ai_risks:x.risks,ai_questions:x.questions,ai_proposal_scope:x.proposal_scope,ai_property_health:x.property_health,ai_cost_risks:x.cost_risks,ai_profitability_analysis:x.profitability_analysis,ai_production_analysis:x.production_analysis,ai_opportunity_analysis:x.opportunity_analysis,ai_cost_drivers:x.cost_drivers,ai_operational_recommendations:x.operational_recommendations,ai_estimate_confidence:x.estimate_confidence,ai_internal_recommendation:x.internal_recommendation}).eq('id',p.id);
+  // The model is asked for JSON arrays on these fields, but occasionally returns a single
+  // string (prose) instead. Supabase/Postgres will throw "malformed array literal" if a plain
+  // string is written to a text[] column, which used to abort the entire update and silently
+  // drop every AI field for this assessment. Coerce here so one inconsistent field can never
+  // take down the whole save.
+  const toArray=v=>{
+   if(v==null)return null;
+   if(Array.isArray(v))return v.map(item=>typeof item==='string'?item:JSON.stringify(item));
+   if(typeof v==='string')return v.trim()?[v.trim()]:null;
+   return [JSON.stringify(v)];
+  };
+  const up=await s.from('assessments').update({ai_summary:x.summary,ai_condition_score:x.condition_score,ai_estimated_rooms_per_day:x.estimated_rooms_per_day,ai_recommended_program:x.recommended_program,ai_recommended_pricing:x.recommended_pricing,ai_recommended_addons:toArray(x.recommended_addons),ai_risks:toArray(x.risks),ai_questions:toArray(x.questions),ai_proposal_scope:x.proposal_scope,ai_property_health:x.property_health,ai_cost_risks:x.cost_risks,ai_profitability_analysis:x.profitability_analysis,ai_production_analysis:x.production_analysis,ai_opportunity_analysis:x.opportunity_analysis,ai_cost_drivers:x.cost_drivers,ai_operational_recommendations:toArray(x.operational_recommendations),ai_estimate_confidence:x.estimate_confidence,ai_internal_recommendation:x.internal_recommendation}).eq('id',p.id);
   if(up.error)throw up.error;
   return NextResponse.json({ok:true,result:x});
- }catch(e){return NextResponse.json({error:e.message||'AI assessment failed.'},{status:500})}
+ }catch(e){
+  console.error('AI assessment failed for',(await params)?.id,e);
+  return NextResponse.json({error:'AI assessment failed. The team has been notified with the error details.'},{status:500});
+ }
 }
